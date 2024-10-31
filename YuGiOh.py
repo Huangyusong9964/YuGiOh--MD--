@@ -2,18 +2,17 @@ import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import sys
+import winreg
 
 def load_options(file_path):
     options = {}
     try:
-        # 首先尝试读取exe同目录下的文件
         exe_dir = os.path.dirname(os.path.abspath(sys.executable if getattr(sys, 'frozen', False) else __file__))
         external_file = os.path.join(exe_dir, 'YuGiOh.txt')
-        
-        # 如果外部文件存在，优先使用外部文件
+
         if os.path.exists(external_file):
             file_path = external_file
-            
+
         with open(file_path, 'r', encoding='utf-8') as f:
             for line in f:
                 key, value = line.strip().split(' ', 1)
@@ -28,7 +27,6 @@ def load_options(file_path):
 
 def rename_folder(path, new_name):
     try:
-        # 获取LocalData文件夹下的唯一子文件夹
         subdirs = [d for d in os.listdir(path) if os.path.isdir(os.path.join(path, d))]
         if len(subdirs) != 1:
             messagebox.showerror("Error", f"Expected 1 subfolder in {path}, found {len(subdirs)}")
@@ -50,6 +48,7 @@ def on_select(*args):
         if base_path:
             if rename_folder(base_path, new_name):
                 messagebox.showinfo("Success", f"Folder renamed to {new_name}")
+                save_last_path(base_path)
             root.quit()
         else:
             messagebox.showerror("Error", "Please select a folder path")
@@ -57,11 +56,10 @@ def on_select(*args):
         messagebox.showerror("Error", "Invalid selection")
 
 def get_resource_path(relative_path):
-    # 首先检查当前目录
     current_dir_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
     if os.path.exists(current_dir_path):
         return current_dir_path
-        
+
     # 如果当前目录没有，则使用打包后的路径
     try:
         base_path = sys._MEIPASS
@@ -69,17 +67,39 @@ def get_resource_path(relative_path):
         base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
+def save_last_path(path):
+    try:
+        # 创建或打开注册表键
+        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\YuGiOhFolderRenamer")
+        # 保存路径
+        winreg.SetValueEx(key, "LastPath", 0, winreg.REG_SZ, path)
+        winreg.CloseKey(key)
+    except Exception as e:
+        print(f"Error saving path: {e}")
+
+def load_last_path():
+    try:
+        # 打开注册表键
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\YuGiOhFolderRenamer", 0, winreg.KEY_READ)
+        # 读取路径
+        path = winreg.QueryValueEx(key, "LastPath")[0]
+        winreg.CloseKey(key)
+        # 验证路径是否存在
+        if os.path.exists(path):
+            return path
+    except Exception as e:
+        print(f"Error loading path: {e}")
+    return r"D:\Steam\steamapps\common\Yu-Gi-Oh!  Master Duel\LocalData"
+
 # Load options
 options_file = get_resource_path('YuGiOh.txt')
 options = load_options(options_file)
 if not options:
     exit()
 
-# Create main window
 root = tk.Tk()
 root.title("Folder Renamer")
 
-# Create and pack widgets
 tk.Label(root, text="Select an option:").pack(pady=10)
 
 option_var = tk.StringVar(root)
@@ -89,8 +109,7 @@ option_menu.pack(pady=10)
 option_var.trace('w', on_select)
 
 tk.Label(root, text="Yu-Gi-Oh! Master Duel folder path:").pack(pady=5)
-default_path = r"D:\Steam\steamapps\common\Yu-Gi-Oh!  Master Duel\LocalData"
-folder_path = tk.StringVar(root, value=default_path)
+folder_path = tk.StringVar(root, value=load_last_path())
 folder_entry = tk.Entry(root, textvariable=folder_path, width=50)
 folder_entry.pack(pady=5)
 
@@ -98,8 +117,16 @@ def browse_folder():
     folder = filedialog.askdirectory()
     if folder:
         folder_path.set(folder)
+        save_last_path(folder)
 
 browse_button = tk.Button(root, text="Browse", command=browse_folder)
 browse_button.pack(pady=10)
+
+# 添加窗口关闭事件处理
+def on_closing():
+    save_last_path(folder_path.get())
+    root.destroy()
+
+root.protocol("WM_DELETE_WINDOW", on_closing)
 
 root.mainloop()
