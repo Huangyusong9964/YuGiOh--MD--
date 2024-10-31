@@ -1,6 +1,6 @@
 import os
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox
 import sys
 import winreg
 
@@ -91,6 +91,11 @@ def load_last_path():
         print(f"Error loading path: {e}")
     return r"D:\Steam\steamapps\common\Yu-Gi-Oh!  Master Duel\LocalData"
 
+def browse_folder():
+    path = filedialog.askdirectory()
+    if path:
+        folder_path.set(path)
+
 # Load options
 options_file = get_resource_path('YuGiOh.txt')
 options = load_options(options_file)
@@ -98,35 +103,65 @@ if not options:
     exit()
 
 root = tk.Tk()
-root.title("Folder Renamer")
+root.title("Yu-Gi-Oh! Master Duel Folder Renamer")
+root.geometry("600x300")  # 设置窗口大小
 
-tk.Label(root, text="Select an option:").pack(pady=10)
+# 配置样式
+style = ttk.Style()
+style.configure('TLabel', font=('Arial', 10))
+style.configure('TButton', font=('Arial', 10))
+style.configure('Header.TLabel', font=('Arial', 12, 'bold'))
+
+# 创建主框架
+main_frame = ttk.Frame(root, padding="20")
+main_frame.pack(fill=tk.BOTH, expand=True)
+
+# 标题
+header = ttk.Label(main_frame, text="Yu-Gi-Oh! Master Duel Folder Renamer", style='Header.TLabel')
+header.pack(pady=(0, 20))
+
+# 选项框架
+option_frame = ttk.LabelFrame(main_frame, text="Rename Options", padding="10")
+option_frame.pack(fill=tk.X, padx=5, pady=5)
 
 option_var = tk.StringVar(root)
-option_menu = tk.OptionMenu(root, option_var, *options.keys())
-option_menu.pack(pady=10)
+option_menu = ttk.Combobox(option_frame, textvariable=option_var, values=list(options.keys()), state='readonly')
+option_menu.pack(fill=tk.X, padx=5, pady=5)
+option_menu.bind('<<ComboboxSelected>>', on_select)
 
-option_var.trace('w', on_select)
+# 路径框架
+path_frame = ttk.LabelFrame(main_frame, text="Folder Path", padding="10")
+path_frame.pack(fill=tk.X, padx=5, pady=10)
 
-tk.Label(root, text="Yu-Gi-Oh! Master Duel folder path:").pack(pady=5)
 folder_path = tk.StringVar(root, value=load_last_path())
-folder_entry = tk.Entry(root, textvariable=folder_path, width=50)
-folder_entry.pack(pady=5)
+path_entry = ttk.Entry(path_frame, textvariable=folder_path, width=50)
+path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(5, 10))
 
-def browse_folder():
-    folder = filedialog.askdirectory()
-    if folder:
-        folder_path.set(folder)
-        save_last_path(folder)
+browse_button = ttk.Button(path_frame, text="Browse", command=browse_folder)
+browse_button.pack(side=tk.RIGHT, padx=5)
 
-browse_button = tk.Button(root, text="Browse", command=browse_folder)
-browse_button.pack(pady=10)
+# 添加说明文本
+info_text = """
+Please select a rename option from the dropdown menu and verify the folder path.
+The program will rename the selected folder according to your choice.
+"""
+info_label = ttk.Label(main_frame, text=info_text, wraplength=500, justify=tk.LEFT)
+info_label.pack(pady=20)
 
-# 添加窗口关闭事件处理
+# 添加底部按钮
+button_frame = ttk.Frame(main_frame)
+button_frame.pack(fill=tk.X, pady=10)
+
+# Define the function first
 def on_closing():
     save_last_path(folder_path.get())
     root.destroy()
 
+# Then create the button
+cancel_button = ttk.Button(button_frame, text="Cancel", command=on_closing)
+cancel_button.pack(side=tk.RIGHT, padx=5)
+
+# 添加窗口关闭事件处理
 root.protocol("WM_DELETE_WINDOW", on_closing)
 
 root.mainloop()
